@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jul 19 21:07:29 2021
+
+@author: georgiaroussos
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas_datareader as pdr
+from datetime import datetime
+import matplotlib.pyplot as plt
+
+
+def GBM(seed, So, mu, sigma, Cov, T, N):
+
+    np.random.seed(seed)
+    dim = np.size(So)
+    t = np.linspace(0., T, int(N))
+    A = np.linalg.cholesky(Cov)
+    S = np.zeros([dim, int(N)])
+    S[:, 0] = So
+    for i in range(1, int(N)):    
+        drift = (mu - 0.5 * sigma**2) * (t[i] - t[i-1])
+        Z = np.random.normal(0., 1., dim)
+        diffusion = np.matmul(A, Z) * (np.sqrt(t[i] - t[i-1]))
+        S[:, i] = S[:, i-1]*np.exp(drift + diffusion)
+    return S, t
+
+
+abbv = pdr.get_data_yahoo(symbols='ABBV', start=datetime(2018, 1, 1), end=datetime(2021, 1, 1))
+bud = pdr.get_data_yahoo(symbols='BUD', start=datetime(2018, 1, 1), end=datetime(2021, 1, 1))
+
+
+plt.figure(figsize = (16,8))
+plt.title('Close Price History', fontsize = 18)
+plt.plot(abbv['Adj Close'])
+plt.plot(bud['Adj Close'])
+plt.legend(['ABBV', 'BUD'], loc = 'upper left', fontsize = 18)
+plt.xlabel('Date', fontsize = 18)
+plt.ylabel('Close Price USD ($)', fontsize = 18)
+plt.show()
+
+
+seed = 22                       
+
+dim = 2; T = 1; N = int(2.**9)
+
+S0 = np.array([100, 100])
+
+
+abbv['log_returns'] = np.log(abbv['Adj Close']).diff()
+bud['log_returns'] = np.log(bud['Adj Close']).diff()
+
+
+mean_abbv = abbv['log_returns'][1:].mean()
+mean_bud = bud['log_returns'][1:].mean()
+mu = [mean_abbv, mean_bud]
+
+std_abbv = abbv['log_returns'][1:].std()
+std_bud = bud['log_returns'][1:].std()
+sigma = np.array([std_abbv, std_bud])
+
+
+Cov = np.cov(abbv['log_returns'][1:], bud['log_returns'][1:] )
+
+
+stocks, time = GBM(seed, S0, mu, sigma, Cov, T, N)
+
+
+
+
+plt.figure(figsize = (16,8))
+plt.title('Two-dimensional Correlated Geometric Brownian Motion', fontsize = 18)
+plt.plot(time, stocks[0,:], label='S_a')
+plt.plot(time, stocks[1,:], label='S_b')
+
+plt.xlabel('Time', fontsize = 18)
+plt.legend(['S_a', 'S_b'], loc = 'upper left', fontsize = 18)
+plt.show()
+
+
+
+seed = 2222                       
+
+dim = 10
+
+T = 1
+N = int(2.**9)
+S0 = np.random.normal(100, 1, dim)
+mu = np.random.uniform(0.01, 0.01, dim)
+sigma = np.random.uniform(0.01, 0.1, dim)
+
+
+if dim == 1:
+    corr = np.array([1])
+else:
+    eig = np.random.uniform(0.1, 1, dim)
+    eig = eig/np.sum(eig)*dim                       
+    corr = random_correlation.rvs(eig)
+
+Cov = np.tensordot(sigma, sigma, 0) * corr          
+
+
+
+stocks, time = GBM(seed, S0, mu, sigma, Cov, T, N)
+
+
+
+
+np.random.seed(seed)
+simul = int(10)                                       
+
+SS = np.zeros([simul, dim, N])
+
+SS[0, :, :] = stocks
+
+for k in range(1, simul):
+    seed = int(np.random.uniform(1,2**32-1,1))
+    SS[k, :, :] = GBM(seed, S0, mu, sigma, Cov, T, N)[0]
+
+
+
+plt.figure(figsize = (16,8))
+plt.title('Multidimensional Correlated Geometric Brownian Motion', fontsize = 18)
+plt.xlabel('Time', fontsize = 18)
+
+for j in range(dim):
+    plt.plot(time, SS[0, j, :])
+plt.show()
+
